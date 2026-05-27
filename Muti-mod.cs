@@ -18,7 +18,7 @@ using Il2CppTLD.IntBackedUnit;
 using ModSettings;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(testMod.testModMain), "AllInOneMod", "1.1.2", "626061157")]
+[assembly: MelonInfo(typeof(testMod.testModMain), "AllInOneMod", "1.1.3", "626061157")]
 [assembly: MelonGame("Hinterland", "TheLongDark")]
 
 namespace testMod
@@ -125,9 +125,14 @@ namespace testMod
         public float containerCapacity = 100f;
 
         // // ================= 采集 =================
-        // [Section("采集")]
-        // [Name("不产生碎肉")]
-        // public bool noRuinedMeat = false;
+        [Section("采集")]
+        [Name("不产生碎肉")]
+        public bool noRuinedMeat = false;
+
+        [Name("肉皮肠收获时间倍率")]
+        [Description("调整收获肉/皮/肠所需时间")]
+        [Slider(0.1f, 1f, 10)]
+        public float harvestTimeMultiplier = 1f;
 
         // [Name("跳过采集动画")]
         // public bool skipHarvestAnim = false;
@@ -171,9 +176,9 @@ namespace testMod
         public float fishingTimeMultiplier = 1f;
 
         // // ================= 烹饪 =================
-        // [Section("烹饪")]
-        // [Name("不烧焦食物")]
-        // public bool noBurnFood = false;
+        [Section("烹饪")]
+        [Name("不烧焦食物")]
+        public bool noBurnFood = false;
 
         // [Name("范围烹饪")]
         // public bool aoeCook = false;
@@ -240,6 +245,10 @@ namespace testMod
         internal static float currentSpeedMS;
         private bool timeActive = false;
         private WeatherTransition cachedWeatherTransition;
+
+private bool lastLKeyState = false;
+
+
         public override void OnInitializeMelon()
         {
             Settings.OnLoad();
@@ -249,6 +258,7 @@ namespace testMod
         {
             UpdateFlyMode();
             UpdateTimeScale();
+            // CheckCookingInfo(); 
             // UpdateCombat();
             // UpdateContainer();
         }
@@ -269,6 +279,123 @@ namespace testMod
             DrawKillHUD();
             DrawTimeScaleHUD();
         }
+
+        // 添加新的方法
+private void CheckCookingInfo()
+{
+    // 只有在 noBurnFood 启用时才检测
+    // if (!Settings.options.noBurnFood) return;
+    
+    bool currentLState = Input.GetKey(KeyCode.L);
+    
+    // 检测 L 键按下（边缘触发，避免重复打印）
+    if (currentLState && !lastLKeyState)
+    {
+        PrintCurrentCookingInfo();
+    }
+    
+    lastLKeyState = currentLState;
+}
+
+private void PrintCurrentCookingInfo()
+{
+    MelonLogger.Msg("========== 烹饪信息 ==========");
+    
+    // 方法1：查找所有 CookingPotItem
+    var cookingPots = UnityEngine.Object.FindObjectsOfType<CookingPotItem>();
+    
+    if (cookingPots == null || cookingPots.Length == 0)
+    {
+        MelonLogger.Msg("未找到任何烹饪锅！");
+        return;
+    }
+    
+    int potIndex = 0;
+    foreach (var pot in cookingPots)
+    {
+        MelonLogger.Msg($"--- 锅具 #{potIndex} ---");
+        
+        // 基本信息
+        MelonLogger.Msg($"烹饪状态: {pot.m_CookingState}");
+        MelonLogger.Msg($"状态枚举值: {(int)pot.m_CookingState}");
+        
+        // 正在烹饪的食物
+        if (pot.m_GearItemBeingCooked != null)
+        {
+            string foodName = pot.m_GearItemBeingCooked.name;
+            float percentCooked = pot.m_PercentCooked;
+            float percentRuined = pot.m_PercentRuined;
+            float minutesUntilCooked = pot.m_MinutesUntilCooked;
+            float minutesUntilRuined = pot.m_MinutesUntilRuined;
+            
+            
+            MelonLogger.Msg($"正在烹饪: {foodName}");
+            MelonLogger.Msg($"烹饪进度: {percentCooked:P1}");  // 百分比格式
+            MelonLogger.Msg($"烧焦进度: {percentRuined:P1}");
+            MelonLogger.Msg($"距离煮熟: {minutesUntilCooked:F1} 分钟");
+            MelonLogger.Msg($"距离烧焦: {minutesUntilRuined:F1} 分钟");
+            
+            // 尝试获取食物物品的详细信息
+            var foodItem = pot.m_GearItemBeingCooked.GetComponent<FoodItem>();
+            if (foodItem != null)
+            {
+                MelonLogger.Msg($"卡路里: {foodItem.m_CaloriesRemaining} cal");
+                
+            }
+        }
+        else
+        {
+            MelonLogger.Msg("没有正在烹饪的食物");
+
+{
+    MelonLogger.Msg("---- 水信息 ----");
+
+    // 正在融化的雪
+    MelonLogger.Msg(
+        $"融雪量: {pot.m_LitersSnowBeingMelted.ToStringMetric(2)}"
+    );
+
+    // 正在煮的水
+    MelonLogger.Msg(
+        $"烧水量: {pot.m_LitersWaterBeingBoiled.ToStringMetric(2)}"
+    );
+
+    // 烹饪状态
+    MelonLogger.Msg($"CookingState: {pot.m_CookingState}");
+
+    // 煮熟进度
+    MelonLogger.Msg($"PercentCooked: {pot.m_PercentCooked:P1}");
+
+    // 烧焦进度
+    MelonLogger.Msg($"PercentRuined: {pot.m_PercentRuined:P1}");
+
+    // 距离完成
+    MelonLogger.Msg(
+        $"MinutesUntilCooked: {pot.m_MinutesUntilCooked:F1}"
+    );
+
+    // 距离烧干/烧焦
+    MelonLogger.Msg(
+        $"MinutesUntilRuined: {pot.m_MinutesUntilRuined:F1}"
+    );
+}
+        }
+        
+        // 烧水信息
+        
+        
+        // 附加信息
+        var fire = pot.m_FireBeingUsed;
+        if (fire != null)
+        {
+            MelonLogger.Msg($"火源存在: 是");
+        }
+        
+        potIndex++;
+    }
+    
+    MelonLogger.Msg("==============================");
+}
 
         // ===================== 功能实现 =====================
         //信息显示
@@ -852,86 +979,174 @@ internal class TorchItem_HeatBoost_Patch
            return true;
        }
     }
-    //烹饪————————————————————————————————————————————————————————————————————————————
-    //不烧焦
-    // [HarmonyPatch(typeof(CookingPotItem), "UpdateCookingTimeAndState")]
-    // public static class CookingPotItem_UpdateCookingTimeAndState_Patch
-    // {
-    //     static bool Prefix(CookingPotItem __instance)
-    //     {
-    //         if (__instance == null || !Settings.options.noBurnFood)
-    //             return true;
-
-    //         if ((int)__instance.m_CookingState == 1)
-    //         {
-    //             __instance.m_PercentRuined = 0f;
-    //             __instance.m_MinutesUntilRuined = 0f;
-    //             __instance.m_GracePeriodElapsedHours = 0f;
-    //             return false;
-    //         }
-    //         return true;
-    //     }
-
-    //     static void Postfix(CookingPotItem __instance)
-    //     {
-    //         if (__instance == null || !Settings.options.noBurnFood)
-    //             return;
-
-    //         __instance.m_PercentRuined = 0f;
-    //         __instance.m_MinutesUntilRuined = float.MaxValue;
-
-    //         if ((int)__instance.m_CookingState == 2)
-    //         {
-    //             MethodInfo method = typeof(CookingPotItem).GetMethod("SetCookingState", BindingFlags.Instance | BindingFlags.NonPublic);
-    //             method?.Invoke(__instance, new object[] { 1 });
-    //         }
-    //     }
-    // }
-    // 不烧焦食物（无警告、无报错、稳定版）
-    // [HarmonyPatch(typeof(CookingPotItem), "UpdateCookingTimeAndState")]
-    // public static class CookingPotItem_UpdateCookingTimeAndState_Patch
-    // {
-    //     private static MethodInfo method_SetCookingState;
-
-    //     static CookingPotItem_UpdateCookingTimeAndState_Patch()
-    //     {
-    //         method_SetCookingState = typeof(CookingPotItem).GetMethod("SetCookingState", BindingFlags.Instance | BindingFlags.NonPublic);
-    //     }
-
-    //     static bool Prefix(CookingPotItem __instance)
-    //     {
-    //         if (__instance == null || !Settings.options.noBurnFood)
-    //             return true;
-
-    //         if ((int)__instance.m_CookingState == 1)
-    //         {
-    //             __instance.m_PercentRuined = 0f;
-    //             __instance.m_MinutesUntilRuined = 0f;
-    //             __instance.m_GracePeriodElapsedHours = 0f;
-    //             return false;
-    //         }
-    //         return true;
-    //     }
-
-    //     static void Postfix(CookingPotItem __instance)
-    //     {
-    //         if (__instance == null || !Settings.options.noBurnFood)
-    //             return;
-
-    //         __instance.m_PercentRuined = 0f;
-    //         __instance.m_MinutesUntilRuined = float.MaxValue;
-
-    //         if ((int)__instance.m_CookingState == 2)
-    //         {
-    //             if (method_SetCookingState != null)
-    //             {
-    //                 method_SetCookingState.Invoke(__instance, new object[] { 1 });
-    //             }
-    //         }
-    //     }
-    // }
-    //尸体取整
     
+    //烹饪————————————————————————————————————————————————————————————————————————————
+
+// ===================== 不烧焦 =====================
+// ===================== 食物不烧焦成功版本 =====================
+// [HarmonyPatch(typeof(CookingPotItem))]
+// internal class CookingPotItem_NoBurn_Patch
+// {
+//     // 每帧重置烧焦进度
+//     [HarmonyPatch("Update")]
+//     [HarmonyPostfix]
+//     private static void Postfix_Update(CookingPotItem __instance)
+//     {
+//         if (Settings.options == null || !Settings.options.noBurnFood) return;
+        
+//         if (__instance.m_GearItemBeingCooked != null)
+//         {
+//             __instance.m_PercentRuined = 0f;
+//             __instance.m_MinutesUntilRuined = float.MaxValue;
+//             __instance.m_GracePeriodElapsedHours = 0f;
+//         }
+//     }
+    
+//     // 阻止状态变为 Ruined
+//     [HarmonyPatch("SetCookingState")]
+//     [HarmonyPrefix]
+//     private static bool Prefix_SetCookingState(CookingPotItem __instance, dynamic cookingState)
+//     {
+//         if (Settings.options == null || !Settings.options.noBurnFood) return true;
+        
+//         int newState = (int)cookingState;
+//         if (newState == 2 && __instance.m_GearItemBeingCooked != null)
+//         {
+//             return false;
+//         }
+        
+//         return true;
+//     }
+// }
+
+
+[HarmonyPatch(typeof(CookingPotItem))]
+internal class CookingPotItem_NoBurn_Patch
+{
+    // 每帧清除烧焦/烧干进度
+    [HarmonyPatch("Update")]
+    [HarmonyPostfix]
+    private static void Postfix_Update(CookingPotItem __instance)
+    {
+        if (Settings.options == null || !Settings.options.noBurnFood)
+            return;
+
+        // 是否有食物
+        bool hasFood =
+            __instance.m_GearItemBeingCooked != null;
+
+        // 是否有正在烧的水
+        bool hasWater =
+            __instance.m_LitersWaterBeingBoiled >
+            ItemLiquidVolume.Zero;
+
+        // 是否有正在融化的雪
+        bool hasSnow =
+            __instance.m_LitersSnowBeingMelted >
+            ItemLiquidVolume.Zero;
+
+        if (hasFood || hasWater || hasSnow)
+        {
+            // 锁定不烧焦
+            __instance.m_PercentRuined = 0f;
+
+            // 永不进入烧焦倒计时
+            __instance.m_MinutesUntilRuined = float.MaxValue;
+
+            // 重置宽限期
+            __instance.m_GracePeriodElapsedHours = 0f;
+        }
+    }
+
+    // 阻止进入 Ruined 状态
+   [HarmonyPatch("SetCookingState")]
+    [HarmonyPrefix]
+    private static bool Prefix_SetCookingState(
+        CookingPotItem __instance,
+        int cookingState)
+    {
+        if (Settings.options == null || !Settings.options.noBurnFood)
+            return true;
+
+        // 2 = Ruined
+        if (cookingState == 2)
+        {
+            // 强制保持 Ready
+            __instance.m_CookingState =
+                (CookingPotItem.CookingState)1;
+
+            return false;
+        }
+
+        return true;
+    }
+}
+
+[HarmonyPatch(typeof(BodyHarvest))]
+internal class BodyHarvest_RoundMeatWeight_Patch
+{
+    [HarmonyPatch("InitializeResourcesAndConditions")]
+    [HarmonyPostfix]
+    private static void Postfix_InitializeResourcesAndConditions(
+        BodyHarvest __instance)
+    {
+        if (Settings.options == null ||
+            !Settings.options.noRuinedMeat)
+        {
+            return;
+        }
+
+        if (__instance == null)
+        {
+            return;
+        }
+
+       
+            // 当前初始化后的肉量
+            float kg =
+                __instance.m_MeatAvailableKG /
+                ItemWeight.FromKilograms(1f);
+
+            float roundedKg =
+                Mathf.Ceil(kg);
+
+            // 已经是整数
+            if (Mathf.Approximately(
+                kg,
+                roundedKg))
+            {
+                return;
+            }
+
+            // MelonLogger.Msg(
+            //     $"[碎肉修正] 初始化肉量: {kg:F2}kg -> {roundedKg:F0}kg"
+            // );
+
+            // 改成整数
+            __instance.m_MeatAvailableKG =
+                ItemWeight.FromKilograms(
+                    roundedKg);
+        
+    }
+}
+
+[HarmonyPatch(typeof(Panel_BodyHarvest))]
+internal class HarvestTimeMultiplierPatch
+{
+    [HarmonyPatch("GetHarvestDurationMinutes")]
+    [HarmonyPostfix]
+    private static void Postfix(
+        ref float __result)
+    {
+        if (Settings.options == null)
+        {
+            return;
+        }
+
+        __result *=
+            Settings.options.harvestTimeMultiplier;
+    }
+}
 
     //钓鱼改
     [HarmonyPatch(typeof(IceFishingHole), "Awake")]
